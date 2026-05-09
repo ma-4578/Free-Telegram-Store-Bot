@@ -1,55 +1,44 @@
-import asyncio
 from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from googletrans import Translator
 
-WELCOME_MEDIA = "https://files.catbox.moe/jebxwm.jpg" 
+# Translator Object ကို တည်ဆောက်မယ်
+translator = Translator()
 
-@Client.on_message(filters.new_chat_members)
-async def welcome_bot(client: Client, message: Message):
-    for user in message.new_chat_members:
-        if user.is_self:
-            continue
-            
-        welcome_text = (
-            f"🎊 **မင်္ဂလာပါ၊ Group မှ ကြိုဆိုပါတယ်!**\n\n"
-            f"👤 **အမည်:** {user.mention}\n"
-            f"✨ **{message.chat.title}** မှာ ပျော်ရွှင်ပါစေဗျာ။\n\n"
-            f"⚠️ *ဤမက်ဆေ့ခ်ျအား ၁ မိနစ်ကြာလျှင် အလိုအလျောက် ဖျက်ပေးပါမည်။*"
+@Client.on_message(filters.command("tr") & filters.reply)
+async def translate_reply(client, message):
+    # Reply ပြန်ထားတဲ့ စာကို ယူမယ်
+    target_message = message.reply_to_message
+    
+    if not target_message.text:
+        await message.reply_text("❌ စာသား (Text) ပါတဲ့ Message ကိုပဲ Reply ပြန်ပြီး ဘာသာပြန်ပေးပါဗျာ။")
+        return
+
+    # ခေတ္တစောင့်ရန် အကြောင်းကြားမယ်
+    status_msg = await message.reply_text("⌛️ ဘာသာပြန်ဆိုနေပါသည်...")
+
+    try:
+        # ဘာသာစကားကို Auto Detect လုပ်ပြီး မြန်မာလို (my) ပြန်မယ်
+        result = translator.translate(target_message.text, dest='my')
+        
+        # မူရင်းဘာသာစကား အမည်ကို ယူမယ် (ဥပမာ- English, Thai)
+        src_lang = result.src.upper()
+        
+        response_text = (
+            f"🇲🇲 **ဘာသာပြန်ဆိုချက်** ({src_lang} -> MY)\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"{result.text}"
         )
         
-        buttons = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("Add Me ➕", url=f"https://t.me/{client.me.username}?startgroup=true"),
-                InlineKeyboardButton("Support 💬", url="https://t.me/myanmarbot_music")
-            ],
-            [
-                InlineKeyboardButton("Update Channel 🌐", url="https://t.me/myanmarbot_music")
-            ]
-        ])
+        await status_msg.edit_text(response_text)
         
-        try:
-            # Welcome Message ကို ပို့မယ်
-            msg = await message.reply_photo(
-                photo=WELCOME_MEDIA, 
-                caption=welcome_text,
-                reply_markup=buttons
-            )
-            
-            # --- Auto Delete စနစ် ---
-            await asyncio.sleep(60) # ၆၀ စက္ကန့် (၁ မိနစ်) စောင့်မယ်
-            await msg.delete()      # Message ကို ပြန်ဖျက်မယ်
-            
-        except Exception as e:
-            print(f"Error: {e}")
+    except Exception as e:
+        print(f"Translation Error: {e}")
+        await status_msg.edit_text("❌ ဘာသာပြန်နေစဉ် Error တက်သွားပါတယ်။ ခဏနေမှ ပြန်ကြိုးစားကြည့်ပါဗျာ။")
 
-@Client.on_message(filters.left_chat_member)
-async def goodbye_bot(client: Client, message: Message):
-    user = message.left_chat_member
-    if user.is_self:
-        return
-        
-    msg = await message.reply_text(f"👋 **Bye Bye {user.first_name}!**\nနောက်မှ ပြန်ဆုံကြမယ်ဗျာ။")
-    
-    # နှုတ်ဆက်စာကိုလည်း ၁ မိနစ်ဆို ဖျက်ချင်ရင် အောက်က code ထည့်ပါ
-    await asyncio.sleep(60)
-    await msg.delete()
+# Command အသုံးပြုပုံ ရှင်းပြချက် (Reply မပါဘဲ /tr ရိုက်ရင် ပြမယ့်စာ)
+@Client.on_message(filters.command("tr") & ~filters.reply)
+async def tr_help(client, message):
+    await message.reply_text(
+        "💡 **အသုံးပြုနည်း:**\n\n"
+        "ဘာသာပြန်ချင်တဲ့ စာကို **Reply** ပြန်ပြီး `/tr` လို့ ရိုက်လိုက်ပါဗျာ။"
+    )
