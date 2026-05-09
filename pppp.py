@@ -1,44 +1,61 @@
+import random
 from pyrogram import Client, filters
-from googletrans import Translator
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# Translator Object ကို တည်ဆောက်မယ်
-translator = Translator()
-
-@Client.on_message(filters.command("tr") & filters.reply)
-async def translate_reply(client, message):
-    # Reply ပြန်ထားတဲ့ စာကို ယူမယ်
-    target_message = message.reply_to_message
+@Client.on_message(filters.command("couple") & filters.group)
+async def couple_handler(client, message):
+    chat_id = message.chat.id
     
-    if not target_message.text:
-        await message.reply_text("❌ စာသား (Text) ပါတဲ့ Message ကိုပဲ Reply ပြန်ပြီး ဘာသာပြန်ပေးပါဗျာ။")
-        return
-
     # ခေတ္တစောင့်ရန် အကြောင်းကြားမယ်
-    status_msg = await message.reply_text("⌛️ ဘာသာပြန်ဆိုနေပါသည်...")
+    status_msg = await message.reply_text("🔍 ဒီနေ့အတွက် အတွဲလေးကို ရှာဖွေပေးနေပါတယ်...")
 
+    # Member စာရင်းကို ယူမယ်
+    members = []
     try:
-        # ဘာသာစကားကို Auto Detect လုပ်ပြီး မြန်မာလို (my) ပြန်မယ်
-        result = translator.translate(target_message.text, dest='my')
-        
-        # မူရင်းဘာသာစကား အမည်ကို ယူမယ် (ဥပမာ- English, Thai)
-        src_lang = result.src.upper()
-        
-        response_text = (
-            f"🇲🇲 **ဘာသာပြန်ဆိုချက်** ({src_lang} -> MY)\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"{result.text}"
-        )
-        
-        await status_msg.edit_text(response_text)
-        
+        async for member in client.get_chat_members(chat_id):
+            if not member.user.is_bot and not member.user.is_deleted:
+                members.append(member.user.mention)
     except Exception as e:
-        print(f"Translation Error: {e}")
-        await status_msg.edit_text("❌ ဘာသာပြန်နေစဉ် Error တက်သွားပါတယ်။ ခဏနေမှ ပြန်ကြိုးစားကြည့်ပါဗျာ။")
+        return await status_msg.edit_text("❌ Member စာရင်းကို ယူလို့မရပါဘူး။ Bot ကို Admin ပေးထားဖို့ လိုပါမယ်။")
 
-# Command အသုံးပြုပုံ ရှင်းပြချက် (Reply မပါဘဲ /tr ရိုက်ရင် ပြမယ့်စာ)
-@Client.on_message(filters.command("tr") & ~filters.reply)
-async def tr_help(client, message):
-    await message.reply_text(
-        "💡 **အသုံးပြုနည်း:**\n\n"
-        "ဘာသာပြန်ချင်တဲ့ စာကို **Reply** ပြန်ပြီး `/tr` လို့ ရိုက်လိုက်ပါဗျာ။"
+    if len(members) < 2:
+        return await status_msg.edit_text("❌ ဒီ Group မှာ လူနည်းလွန်းလို့ အတွဲရွေးလို့ မရသေးပါဘူး။")
+
+    # လူနှစ်ယောက်ကို ကျပန်း ရွေးမယ်
+    chosen_ones = random.sample(members, 2)
+    c1, c2 = chosen_ones[0], chosen_ones[1]
+
+    couple_text = (
+        f"💌 **ဒီနေ့ရဲ့ ကံအကောင်းဆုံး အတွဲလေးကတော့...**\n\n"
+        f"{c1} 💖 {c2}\n\n"
+        f"🌹 **ဆုတောင်းစာ:**\n"
+        f"တစ်ယောက်ကိုတစ်ယောက် အပြန်အလှန် နားလည်မှုရှိရှိနဲ့ "
+        f"ချစ်ခြင်းမေတ္တာတွေ ထာဝရ တည်မြဲပါစေကြောင်း ဆုတောင်းပေးလိုက်ပါတယ်ဗျာ။ ✨"
     )
+    
+    # Button ထည့်မယ်
+    buttons = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("သင့် Group မှာလည်း Add လိုက်ပါ ➕", url=f"https://t.me/{client.me.username}?startgroup=true")
+        ]
+    ])
+    
+    await status_msg.edit_text(couple_text, reply_markup=buttons)
+
+# --- အသုံးပြုပုံ (Help Message) ---
+@Client.on_message(filters.command("couple") & ~filters.group)
+async def couple_help(client, message):
+    help_text = (
+        "👫 **Couple Finder အသုံးပြုနည်း**\n\n"
+        "ဒီ Command ကို Group ထဲမှာပဲ သုံးလို့ရပါတယ်ဗျာ။\n\n"
+        "✅ `/couple` လို့ ရိုက်လိုက်ရင် Group ထဲက Member တွေထဲကနေ "
+        "အတွဲတစ်တွဲကို Bot က ကျပန်း (Random) ရွေးချယ်ပေးမှာ ဖြစ်ပါတယ်။"
+    )
+    
+    buttons = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("Group ထဲသို့ ထည့်ရန် ➕", url=f"https://t.me/{client.me.username}?startgroup=true")
+        ]
+    ])
+    
+    await message.reply_text(help_text, reply_markup=buttons)
